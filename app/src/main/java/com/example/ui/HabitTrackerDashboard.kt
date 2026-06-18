@@ -150,6 +150,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
     var showImportDialog by remember { mutableStateOf(false) }
     var showTrashDialog by remember { mutableStateOf(false) }
     var showReadmeDialog by remember { mutableStateOf(false) }
+    var showTimeProgressDialog by remember { mutableStateOf(false) }
 
     var anchorDate by remember { mutableStateOf(Date()) }
 
@@ -244,6 +245,16 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                             Icon(
                                 imageVector = Icons.Default.CloudSync,
                                 contentDescription = "Sync habits now to Google Cloud",
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        IconButton(
+                            onClick = { showTimeProgressDialog = true },
+                            modifier = Modifier.testTag("app_bar_time_progress_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.HourglassEmpty,
+                                contentDescription = "Time Progress",
                                 tint = MaterialTheme.colorScheme.primary
                             )
                         }
@@ -449,7 +460,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                                         Text(
                                             text = displayDayFormat.format(date).uppercase(Locale.US),
                                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                            color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                             fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -457,13 +468,13 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                                             modifier = Modifier
                                                 .size(20.dp)
                                                 .clip(CircleShape)
-                                                .background(if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else Color.Transparent),
+                                                .background(if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = displayNumFormat.format(date),
                                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                                color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                                                color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -685,8 +696,9 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                         val totalCompCount = remember(allCompletions, habit.id) { allCompletions.count { it.habitId == habit.id } }
                         
                         // 30 day score calculation
-                        val completions30Count = remember(allCompletions, habit.id) {
+                        val completions30Count = remember(allCompletions, habit.id, anchorDate) {
                             val cal = Calendar.getInstance()
+                            cal.time = anchorDate
                             val set30 = mutableSetOf<String>()
                             val localSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                             for (i in 0 until 30) {
@@ -701,13 +713,16 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                         } else 0
 
                         // Line graph score trend over past 6 weeks
-                        val scoreHistory = remember(allCompletions, habit.id) {
+                        val scoreHistory = remember(allCompletions, habit.id, anchorDate) {
                             val scores = mutableListOf<Pair<Int, Float>>()
                             val cal = Calendar.getInstance()
+                            cal.time = anchorDate
                             cal.add(Calendar.WEEK_OF_YEAR, -5)
                             cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
                             val localSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                            val todayStr = localSdf.format(Date())
+                            val todayCal = Calendar.getInstance()
+                            todayCal.time = anchorDate
+                            val todayStr = localSdf.format(todayCal.time)
                             for (w in 0 until 6) {
                                 var completed = 0
                                 var daysPassed = 0
@@ -732,9 +747,10 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                         }
 
                         // Bar chart completions over past 8 weeks
-                        val weeklyCounts = remember(allCompletions, habit.id) {
+                        val weeklyCounts = remember(allCompletions, habit.id, anchorDate) {
                             val counts = mutableListOf<Pair<Int, Int>>()
                             val cal = Calendar.getInstance()
+                            cal.time = anchorDate
                             cal.add(Calendar.WEEK_OF_YEAR, -7)
                             cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
                             val localSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
@@ -1254,6 +1270,10 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
 
     if (showReadmeDialog) {
         GlobalReadmeDialog(onDismiss = { showReadmeDialog = false })
+    }
+
+    if (showTimeProgressDialog) {
+        TimeProgressDialog(onDismiss = { showTimeProgressDialog = false })
     }
 
     if (showImportDialog) {
@@ -4106,12 +4126,19 @@ fun MonthCalendarView(
                 }) {
                     Text("◀", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 }
-                Text(
-                    text = monthName,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = monthName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Week ${Calendar.getInstance().get(Calendar.WEEK_OF_YEAR)} of ${Calendar.getInstance().get(Calendar.YEAR)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 IconButton(onClick = {
                     val nextCal = calendarMonth.clone() as Calendar
                     nextCal.add(Calendar.MONTH, 1)
@@ -4459,6 +4486,142 @@ fun MonthCalendarView(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun TimeProgressDialog(onDismiss: () -> Unit) {
+    var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(1000L)
+            currentTime = System.currentTimeMillis()
+        }
+    }
+
+    val cal = Calendar.getInstance()
+    cal.timeInMillis = currentTime
+    
+    fun getDayProgress(): Float {
+        val h = cal.get(Calendar.HOUR_OF_DAY)
+        val m = cal.get(Calendar.MINUTE)
+        val s = cal.get(Calendar.SECOND)
+        return (h * 3600 + m * 60 + s) / 86400f
+    }
+    
+    fun getWeekProgress(): Float {
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        val normalizedDay = if (dayOfWeek == Calendar.SUNDAY) 6 else dayOfWeek - 2 // Mon=0 .. Sun=6
+        val dayProgress = getDayProgress()
+        return (normalizedDay.coerceIn(0, 6) + dayProgress) / 7f
+    }
+    
+    fun getMonthProgress(): Float {
+        val dayOfMonth = cal.get(Calendar.DAY_OF_MONTH) - 1
+        val daysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val dayProgress = getDayProgress()
+        return (dayOfMonth + dayProgress) / daysInMonth.toFloat()
+    }
+    
+    fun getQuarterProgress(): Float {
+        val month = cal.get(Calendar.MONTH) // 0-11
+        val quarterIndex = month / 3
+        val startMonth = quarterIndex * 3
+        val startCal = Calendar.getInstance().apply { set(Calendar.MONTH, startMonth); set(Calendar.DAY_OF_MONTH, 1) }
+        val endCal = Calendar.getInstance().apply { set(Calendar.MONTH, startMonth + 2); set(Calendar.DAY_OF_MONTH, getActualMaximum(Calendar.DAY_OF_MONTH)) }
+        val totalDays = endCal.get(Calendar.DAY_OF_YEAR) - startCal.get(Calendar.DAY_OF_YEAR) + 1
+        val daysPassed = cal.get(Calendar.DAY_OF_YEAR) - startCal.get(Calendar.DAY_OF_YEAR)
+        val dayProgress = getDayProgress()
+        return (daysPassed + dayProgress) / totalDays.coerceAtLeast(1).toFloat()
+    }
+    
+    fun getYearProgress(): Float {
+        val dayOfYear = cal.get(Calendar.DAY_OF_YEAR) - 1
+        val daysInYear = cal.getActualMaximum(Calendar.DAY_OF_YEAR)
+        val dayProgress = getDayProgress()
+        return (dayOfYear + dayProgress) / daysInYear.toFloat()
+    }
+    
+    fun getLifeProgress(): Float {
+        val assumedBirthYear = 1996 // Assuming ~30yr old in 2026. Can be modified later
+        val startCal = Calendar.getInstance().apply { set(Calendar.YEAR, assumedBirthYear); set(Calendar.MONTH, 0); set(Calendar.DAY_OF_MONTH, 1) }
+        val millisLived = currentTime - startCal.timeInMillis
+        val totalMillis = 80L * 365L * 24L * 3600L * 1000L // Approx 80 years
+        return (millisLived.toDouble() / totalMillis.toDouble()).coerceIn(0.0, 1.0).toFloat()
+    }
+
+    val dayP = getDayProgress()
+    val weekP = getWeekProgress()
+    val monthP = getMonthProgress()
+    val quarterP = getQuarterProgress()
+    val yearP = getYearProgress()
+    val lifeP = getLifeProgress()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(8.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Time Progress",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                
+                TimeProgressBarRow("Day", dayP)
+                TimeProgressBarRow("Week", weekP)
+                TimeProgressBarRow("Month", monthP)
+                TimeProgressBarRow("Quarter", quarterP)
+                TimeProgressBarRow("Year", yearP)
+                TimeProgressBarRow("Life (80y)", lifeP, overrideColor = Color.White)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TimeProgressBarRow(label: String, progress: Float, overrideColor: Color? = null) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Bottom
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text(String.format(Locale.US, "%.2f%%", progress * 100f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(14.dp)
+                .clip(RoundedCornerShape(7.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(7.dp))
+                .background(Color.Transparent)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(progress.coerceIn(0f, 1f))
+                    .fillMaxHeight()
+                    .padding(2.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(overrideColor ?: MaterialTheme.colorScheme.onSurface)
+            )
         }
     }
 }
