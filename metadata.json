@@ -1,0 +1,6 @@
+{
+  "name": "Habit Tracker",
+  "description": "A habit tracker with powerful weekly/monthly reviews, stats dashboards, and progress reporting.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
