@@ -149,10 +149,16 @@ class HabitViewModel(
             }.toSet()
             val lastWeekComps = habitCompDates.filter { lastWeekDates.contains(it) }.toSet()
 
-            // Mastery level
-            val daysActive = ((System.currentTimeMillis() - habit.createdAt) / (1000 * 60 * 60 * 24)).coerceAtLeast(1)
-            val expectedCompletions = (daysActive * habit.targetDaysPerWeek / 7).coerceAtLeast(1)
-            val mastery = ((habitCompDates.distinct().size.toFloat() / expectedCompletions.toFloat()) * 5f).toInt().coerceIn(0, 5)
+            // Mastery level benchmark
+            val totalCompletions = habitCompDates.distinct().size
+            val mastery = when {
+                totalCompletions < 7 -> 0
+                totalCompletions < 21 -> 1
+                totalCompletions < 45 -> 2
+                totalCompletions < 90 -> 3
+                totalCompletions < 180 -> 4
+                else -> 5
+            }
             val masteryLabel = when (mastery) {
                 0 -> "Rookie"
                 1 -> "Apprentice"
@@ -363,8 +369,8 @@ class HabitViewModel(
     // Update an existing habit
     fun updateHabit(id: Int, name: String, description: String, targetDays: Int, colorHex: String, freqAmount: Int, freqPeriod: String) {
         viewModelScope.launch {
-            val habit = Habit(
-                id = id,
+            val existing = repository.getHabitById(id) ?: return@launch
+            val habit = existing.copy(
                 name = name,
                 description = description,
                 targetDaysPerWeek = targetDays,

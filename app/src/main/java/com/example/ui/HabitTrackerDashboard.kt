@@ -1224,8 +1224,8 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
     if (showAddDialog) {
         AddHabitDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, desc, targetDays, color ->
-                viewModel.addNewHabit(name, desc, targetDays, color, 1, "DAILY")
+            onConfirm = { name, desc, targetDays, color, freqAmount, freqPeriod ->
+                viewModel.addNewHabit(name, desc, targetDays, color, freqAmount, freqPeriod)
                 showAddDialog = false
                 Toast.makeText(context, "Habit created successfully!", Toast.LENGTH_SHORT).show()
             }
@@ -2515,18 +2515,7 @@ fun HabitItemRow(
                         )
                     }
                 }
-                
-                // Reorder controls
-                Column {
-                    IconButton(onClick = onMoveUp, modifier = Modifier.size(20.dp)) {
-                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Move Up")
-                    }
-                    IconButton(onClick = onMoveDown, modifier = Modifier.size(20.dp)) {
-                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Move Down")
-                    }
-                }
             }
-
 
             Row(
                 modifier = Modifier
@@ -2860,20 +2849,98 @@ fun WeeklyTrendChart(reports: List<WeeklyReport>) {
 }
 
 @Composable
+fun MasteryInfoDialog(onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "Mastery Levels Guide",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = "The mastery level of your habit is purely based on the number of non-archived completions you have accrued over its total lifetime. The more consistently you complete the task, the faster you rank up.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    MasteryRow(level = 0, label = "Rookie", desc = "0 to 6 completions")
+                    MasteryRow(level = 1, label = "Apprentice", desc = "7 to 20 completions")
+                    MasteryRow(level = 2, label = "Practitioner", desc = "21 to 44 completions")
+                    MasteryRow(level = 3, label = "Expert", desc = "45 to 89 completions")
+                    MasteryRow(level = 4, label = "Master", desc = "90 to 179 completions")
+                    MasteryRow(level = 5, label = "Legend", desc = "180+ completions")
+                }
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Close")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MasteryRow(level: Int, label: String, desc: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(text = "Lv$level", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
+        Column {
+            Text(text = label, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+            Text(text = desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
 fun HabitStreaksPanel(
     analytics: List<HabitAnalytics>,
     onHabitSelected: (Habit) -> Unit
 ) {
+    var showMasteryInfo by remember { mutableStateOf(false) }
+
+    if (showMasteryInfo) {
+        MasteryInfoDialog(onDismiss = { showMasteryInfo = false })
+    }
+
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Habit Streaks & Goals",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleMedium
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Habit Streaks & Goals",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                IconButton(onClick = { showMasteryInfo = true }, modifier = Modifier.size(24.dp)) {
+                    Icon(imageVector = Icons.Default.Info, contentDescription = "Mastery Level Info", tint = MaterialTheme.colorScheme.primary)
+                }
+            }
             Text(
                 text = "Click any habit below to dive deep into custom goals & streaks stats",
                 style = MaterialTheme.typography.bodySmall,
@@ -3103,19 +3170,35 @@ fun EditHabitDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Column {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = "Weekly Target Goal: ${targetDays} days",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Slider(
-                        value = targetDays.toFloat(),
-                        onValueChange = { targetDays = it.toInt() },
-                        valueRange = 1f..7f,
-                        steps = 5,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        for (i in 1..7) {
+                            val isSelected = targetDays == i
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { targetDays = i },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = i.toString(),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
                 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3244,11 +3327,13 @@ fun EditHabitDialog(
 @Composable
 fun AddHabitDialog(
     onDismiss: () -> Unit,
-    onConfirm: (name: String, description: String, targetDays: Int, colorHex: String) -> Unit
+    onConfirm: (name: String, description: String, targetDays: Int, colorHex: String, freqAmount: Int, freqPeriod: String) -> Unit
 ) {
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var targetDays by remember { mutableStateOf(7) }
+    var freqAmount by remember { mutableStateOf(1) }
+    var freqPeriod by remember { mutableStateOf("DAILY") }
 
     // Wide range of colors including vibrant reds, greens, blues, oranges, purples, etc.
     val colorSwatches = listOf(
@@ -3308,7 +3393,22 @@ fun AddHabitDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Column {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = freqAmount.toString(),
+                        onValueChange = { freqAmount = it.toIntOrNull() ?: 1 },
+                        label = { Text("Amount") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = freqPeriod,
+                        onValueChange = { freqPeriod = it.uppercase() },
+                        label = { Text("Period (DAILY/WEEKLY/MONTHLY)") },
+                        modifier = Modifier.weight(2f)
+                    )
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         modifier = Modifier.fillMaxWidth()
@@ -3325,13 +3425,29 @@ fun AddHabitDialog(
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
-                    Slider(
-                        value = targetDays.toFloat(),
-                        onValueChange = { targetDays = it.toInt() },
-                        valueRange = 1f..7f,
-                        steps = 5,
-                        modifier = Modifier.testTag("habit_target_slider")
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        for (i in 1..7) {
+                            val isSelected = targetDays == i
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                                    .clickable { targetDays = i },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = i.toString(),
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Color swatches selection
@@ -3433,7 +3549,9 @@ fun AddHabitDialog(
                                     name.trim(),
                                     description.trim(),
                                     targetDays,
-                                    finalColor
+                                    finalColor,
+                                    freqAmount,
+                                    freqPeriod.trim()
                                 )
                             }
                         },
