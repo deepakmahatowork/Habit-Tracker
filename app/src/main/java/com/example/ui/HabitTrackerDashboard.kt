@@ -1,5 +1,10 @@
 package com.example.ui
 
+import android.media.RingtoneManager
+import android.net.Uri
+import kotlinx.coroutines.delay
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.DialogProperties
 import android.widget.Toast
 import android.content.Intent
 import android.provider.Settings
@@ -151,6 +156,37 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
     var showTrashDialog by remember { mutableStateOf(false) }
     var showReadmeDialog by remember { mutableStateOf(false) }
     var showTimeProgressDialog by remember { mutableStateOf(false) }
+    var isPomodoroFullScreen by remember { mutableStateOf(false) }
+    val pomodoroState = remember { PomodoroState() }
+
+    LaunchedEffect(pomodoroState.isRunning) {
+        if (pomodoroState.isRunning) {
+            while (pomodoroState.timeRemainingSeconds > 0 && pomodoroState.isRunning) {
+                delay(1000L)
+                pomodoroState.timeRemainingSeconds -= 1
+                if (pomodoroState.timeRemainingSeconds <= 0) {
+                    pomodoroState.isRunning = false
+                    try {
+                        val notification: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                        val r = RingtoneManager.getRingtone(context, notification)
+                        r.play()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                    if (pomodoroState.mode == "Pomodoro") {
+                        pomodoroState.pomodorosCompleted += 1
+                        if (pomodoroState.pomodorosCompleted % 4 == 0) {
+                            pomodoroState.changeMode("Long Break")
+                        } else {
+                            pomodoroState.changeMode("Short Break")
+                        }
+                    } else {
+                        pomodoroState.changeMode("Pomodoro")
+                    }
+                }
+            }
+        }
+    }
 
     var anchorDate by remember { mutableStateOf(Date()) }
 
@@ -369,8 +405,32 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
         ) {
             if (activeTab == 3) {
                 // Time Log Tab logic
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     TimeProgressDialog(onDismiss = { /* do nothing, it's a page now */ }, isDialog = false)
+                    PomodoroTimerView(
+                        state = pomodoroState,
+                        isFullScreen = false,
+                        onFullScreenToggle = { isPomodoroFullScreen = true }
+                    )
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+                
+                if (isPomodoroFullScreen) {
+                    Dialog(
+                        onDismissRequest = { isPomodoroFullScreen = false },
+                        properties = DialogProperties(usePlatformDefaultWidth = false)
+                    ) {
+                        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                            PomodoroTimerView(
+                                state = pomodoroState,
+                                isFullScreen = true,
+                                onFullScreenToggle = { isPomodoroFullScreen = false }
+                            )
+                        }
+                    }
                 }
             } else if (activeTab == 0) {
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
@@ -4651,6 +4711,184 @@ fun TimeProgressBarRow(label: String, progress: Float, overrideColor: Color? = n
                     .clip(RoundedCornerShape(5.dp))
                     .background(overrideColor ?: MaterialTheme.colorScheme.onSurface)
             )
+        }
+    }
+}
+
+
+class PomodoroState {
+    var mode by mutableStateOf("Pomodoro")
+    var pomodoroTimeMinutes by mutableIntStateOf(25)
+    var shortBreakMinutes by mutableIntStateOf(5)
+    var longBreakMinutes by mutableIntStateOf(15)
+    var timeRemainingSeconds by mutableIntStateOf(25 * 60)
+    var isRunning by mutableStateOf(false)
+    var pomodorosCompleted by mutableIntStateOf(0)
+    var showEditDialog by mutableStateOf(false)
+    
+    fun changeMode(newMode: String) {
+        mode = newMode
+        isRunning = false
+        timeRemainingSeconds = when (newMode) {
+            "Pomodoro" -> pomodoroTimeMinutes * 60
+            "Short Break" -> shortBreakMinutes * 60
+            "Long Break" -> longBreakMinutes * 60
+            else -> 25 * 60
+        }
+    }
+    
+    fun updateTimeRemaining() {
+        if (!isRunning) {
+            timeRemainingSeconds = when (mode) {
+                "Pomodoro" -> pomodoroTimeMinutes * 60
+                "Short Break" -> shortBreakMinutes * 60
+                "Long Break" -> longBreakMinutes * 60
+                else -> 25 * 60
+            }
+        }
+    }
+}
+
+@Composable
+fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenToggle: () -> Unit) {
+    var inputPomodoro by remember { mutableStateOf(state.pomodoroTimeMinutes.toString()) }
+    var inputShortBreak by remember { mutableStateOf(state.shortBreakMinutes.toString()) }
+    var inputLongBreak by remember { mutableStateOf(state.longBreakMinutes.toString()) }
+
+    if (state.showEditDialog) {
+        AlertDialog(
+            onDismissRequest = { state.showEditDialog = false },
+            title = { Text("Edit Timer (Minutes)") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = inputPomodoro,
+                        onValueChange = { inputPomodoro = it },
+                        label = { Text("Pomodoro") }
+                    )
+                    OutlinedTextField(
+                        value = inputShortBreak,
+                        onValueChange = { inputShortBreak = it },
+                        label = { Text("Short Break") }
+                    )
+                    OutlinedTextField(
+                        value = inputLongBreak,
+                        onValueChange = { inputLongBreak = it },
+                        label = { Text("Long Break") }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.pomodoroTimeMinutes = inputPomodoro.toIntOrNull() ?: 25
+                    state.shortBreakMinutes = inputShortBreak.toIntOrNull() ?: 5
+                    state.longBreakMinutes = inputLongBreak.toIntOrNull() ?: 15
+                    state.updateTimeRemaining()
+                    state.showEditDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { state.showEditDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    val displayMinutes = state.timeRemainingSeconds / 60
+    val displaySeconds = state.timeRemainingSeconds % 60
+    val timeString = String.format(Locale.US, "%02d:%02d", displayMinutes, displaySeconds)
+
+    val bgColor = when (state.mode) {
+        "Pomodoro" -> Color(0xFF5C6BC0) // Indigo
+        "Short Break" -> Color(0xFF4CAF50) // Green
+        "Long Break" -> Color(0xFF2196F3) // Blue
+        else -> MaterialTheme.colorScheme.primary
+    }
+
+    Card(
+        shape = RoundedCornerShape(24.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (isFullScreen) Modifier.fillMaxHeight() else Modifier.height(300.dp))
+            .padding(16.dp),
+        colors = CardDefaults.cardColors(containerColor = bgColor)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                IconButton(onClick = { state.showEditDialog = true }) {
+                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                }
+                IconButton(onClick = onFullScreenToggle) {
+                    Icon(if (isFullScreen) Icons.Default.Close else Icons.Default.Fullscreen, contentDescription = "Full Screen", tint = Color.White)
+                }
+            }
+            
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.2f))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                listOf("Pomodoro", "Short Break", "Long Break").forEach { tabMode ->
+                    val isSelected = state.mode == tabMode
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(if (isSelected) Color.White else Color.Transparent)
+                            .clickable { state.changeMode(tabMode) }
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = tabMode,
+                            color = if (isSelected) Color.Black else Color.White,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+            
+            Text(
+                text = timeString,
+                fontSize = if (isFullScreen) 120.sp else 80.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.White
+            )
+
+            Text(
+                text = "Pomodoros completed before long break ${state.pomodorosCompleted % 4}/4",
+                color = Color.White.copy(alpha = 0.8f),
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 16.dp)) {
+                Button(
+                    onClick = { state.isRunning = !state.isRunning },
+                    colors = ButtonDefaults.buttonColors(containerColor = if (state.isRunning) Color.Red.copy(alpha = 0.8f) else Color.White),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Text(
+                        text = if (state.isRunning) "Pause" else "Start",
+                        color = if (state.isRunning) Color.White else Color.Black,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                TextButton(onClick = { 
+                    state.isRunning = false
+                    state.updateTimeRemaining()
+                }) {
+                    Text("Reset", color = Color.White)
+                }
+            }
         }
     }
 }
