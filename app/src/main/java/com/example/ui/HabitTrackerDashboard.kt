@@ -4929,7 +4929,7 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
             
             Text(
                 text = timeString,
-                fontSize = if (isFullScreen) 300.sp else 80.sp,
+                fontSize = if (isFullScreen) 180.sp else 80.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
