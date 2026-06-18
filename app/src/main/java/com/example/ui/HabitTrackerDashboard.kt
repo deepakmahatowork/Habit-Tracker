@@ -161,11 +161,13 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
 
     LaunchedEffect(pomodoroState.isRunning) {
         if (pomodoroState.isRunning) {
+            pomodoroState.isFinished = false
             while (pomodoroState.timeRemainingSeconds > 0 && pomodoroState.isRunning) {
                 delay(1000L)
                 pomodoroState.timeRemainingSeconds -= 1
                 if (pomodoroState.timeRemainingSeconds <= 0) {
                     pomodoroState.isRunning = false
+                    pomodoroState.isFinished = true
                     try {
                         val notification: Uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
                         val r = RingtoneManager.getRingtone(context, notification)
@@ -4570,6 +4572,11 @@ fun MonthCalendarView(
 
 @Composable
 fun TimeProgressDialog(onDismiss: () -> Unit, isDialog: Boolean = true) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val sharedPrefs = remember { context.getSharedPreferences("habit_prefs", android.content.Context.MODE_PRIVATE) }
+    var birthYear by remember { mutableIntStateOf(sharedPrefs.getInt("birth_year", 1996)) }
+    var showBirthYearDialog by remember { mutableStateOf(false) }
+
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
     // ...
     LaunchedEffect(Unit) {
@@ -4623,7 +4630,7 @@ fun TimeProgressDialog(onDismiss: () -> Unit, isDialog: Boolean = true) {
     }
     
     fun getLifeProgress(): Float {
-        val assumedBirthYear = 1996 // Assuming ~30yr old in 2026. Can be modified later
+        val assumedBirthYear = birthYear
         val startCal = Calendar.getInstance().apply { set(Calendar.YEAR, assumedBirthYear); set(Calendar.MONTH, 0); set(Calendar.DAY_OF_MONTH, 1) }
         val millisLived = currentTime - startCal.timeInMillis
         val totalMillis = 80L * 365L * 24L * 3600L * 1000L // Approx 80 years
@@ -4637,16 +4644,54 @@ fun TimeProgressDialog(onDismiss: () -> Unit, isDialog: Boolean = true) {
     val yearP = getYearProgress()
     val lifeP = getLifeProgress()
 
+    if (showBirthYearDialog) {
+        var inputBirthYear by remember { mutableStateOf(birthYear.toString()) }
+        AlertDialog(
+            onDismissRequest = { showBirthYearDialog = false },
+            title = { Text("Set Birth Year") },
+            text = {
+                OutlinedTextField(
+                    value = inputBirthYear,
+                    onValueChange = { inputBirthYear = it },
+                    label = { Text("Birth Year (e.g. 1996)") },
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number)
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val newYear = inputBirthYear.toIntOrNull()
+                    if (newYear != null) {
+                        birthYear = newYear
+                        sharedPrefs.edit().putInt("birth_year", newYear).apply()
+                    }
+                    showBirthYearDialog = false
+                }) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showBirthYearDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
     val content = @Composable {
         Column(
             modifier = Modifier.padding(24.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = "Time Progress",
-                fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleLarge
-            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = "Time Progress",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                IconButton(onClick = { showBirthYearDialog = true }) {
+                    Icon(Icons.Default.Settings, contentDescription = "Set Birth Year")
+                }
+            }
             
             TimeProgressBarRow("Day", dayP)
             TimeProgressBarRow("Week", weekP)
@@ -4725,10 +4770,12 @@ class PomodoroState {
     var isRunning by mutableStateOf(false)
     var pomodorosCompleted by mutableIntStateOf(0)
     var showEditDialog by mutableStateOf(false)
+    var isFinished by mutableStateOf(false)
     
     fun changeMode(newMode: String) {
         mode = newMode
         isRunning = false
+        isFinished = false
         timeRemainingSeconds = when (newMode) {
             "Pomodoro" -> pomodoroTimeMinutes * 60
             "Short Break" -> shortBreakMinutes * 60
@@ -4739,6 +4786,7 @@ class PomodoroState {
     
     fun updateTimeRemaining() {
         if (!isRunning) {
+            isFinished = false
             timeRemainingSeconds = when (mode) {
                 "Pomodoro" -> pomodoroTimeMinutes * 60
                 "Short Break" -> shortBreakMinutes * 60
@@ -4754,6 +4802,19 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
     var inputPomodoro by remember { mutableStateOf(state.pomodoroTimeMinutes.toString()) }
     var inputShortBreak by remember { mutableStateOf(state.shortBreakMinutes.toString()) }
     var inputLongBreak by remember { mutableStateOf(state.longBreakMinutes.toString()) }
+    
+    val backgroundColor = remember { androidx.compose.animation.Animatable(Color.Transparent) }
+    
+    LaunchedEffect(state.isFinished) {
+        if (state.isFinished) {
+            repeat(3) {
+                backgroundColor.animateTo(Color.White, animationSpec = androidx.compose.animation.core.tween(300))
+                backgroundColor.animateTo(Color.Black, animationSpec = androidx.compose.animation.core.tween(300))
+            }
+        } else {
+            backgroundColor.snapTo(Color.Transparent)
+        }
+    }
 
     if (state.showEditDialog) {
         AlertDialog(
@@ -4812,81 +4873,98 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
         shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .then(if (isFullScreen) Modifier.fillMaxHeight() else Modifier.height(300.dp))
+            .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.height(300.dp))
             .padding(16.dp),
-        colors = CardDefaults.cardColors(containerColor = bgColor)
+        colors = CardDefaults.cardColors(
+            containerColor = if (isFullScreen) {
+                if (state.isFinished) backgroundColor.value else Color.Black
+            } else {
+                if (state.isFinished) backgroundColor.value else bgColor
+            }
+        )
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = if (isFullScreen) Arrangement.Center else Arrangement.SpaceBetween
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                IconButton(onClick = { state.showEditDialog = true }) {
-                    Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                if (!isFullScreen) {
+                    IconButton(onClick = { state.showEditDialog = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings", tint = Color.White)
+                    }
                 }
                 IconButton(onClick = onFullScreenToggle) {
                     Icon(if (isFullScreen) Icons.Default.Close else Icons.Default.Fullscreen, contentDescription = "Full Screen", tint = Color.White)
                 }
             }
             
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                listOf("Pomodoro", "Short Break", "Long Break").forEach { tabMode ->
-                    val isSelected = state.mode == tabMode
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(if (isSelected) Color.White else Color.Transparent)
-                            .clickable { state.changeMode(tabMode) }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = tabMode,
-                            color = if (isSelected) Color.Black else Color.White,
-                            fontWeight = FontWeight.Bold,
-                            style = MaterialTheme.typography.labelMedium
-                        )
+            if (!isFullScreen) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color.White.copy(alpha = 0.2f))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    listOf("Pomodoro", "Short Break", "Long Break").forEach { tabMode ->
+                        val isSelected = state.mode == tabMode
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(if (isSelected) Color.White else Color.Transparent)
+                                .clickable { state.changeMode(tabMode) }
+                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                        ) {
+                            Text(
+                                text = tabMode,
+                                color = if (isSelected) Color.Black else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     }
                 }
             }
             
             Text(
                 text = timeString,
-                fontSize = if (isFullScreen) 120.sp else 80.sp,
+                fontSize = if (isFullScreen) 300.sp else 80.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
             )
 
-            Text(
-                text = "Pomodoros completed before long break ${state.pomodorosCompleted % 4}/4",
-                color = Color.White.copy(alpha = 0.8f),
-                style = MaterialTheme.typography.bodyMedium
-            )
+            if (!isFullScreen) {
+                Text(
+                    text = "Pomodoros completed before long break ${state.pomodorosCompleted % 4}/4",
+                    color = Color.White.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(bottom = 16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.padding(bottom = if (isFullScreen) 32.dp else 0.dp)
+            ) {
                 Button(
                     onClick = { state.isRunning = !state.isRunning },
-                    colors = ButtonDefaults.buttonColors(containerColor = if (state.isRunning) Color.Red.copy(alpha = 0.8f) else Color.White),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
                     shape = RoundedCornerShape(24.dp)
                 ) {
                     Text(
                         text = if (state.isRunning) "Pause" else "Start",
-                        color = if (state.isRunning) Color.White else Color.Black,
+                        color = Color.Black,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp
                     )
                 }
                 TextButton(onClick = { 
                     state.isRunning = false
                     state.updateTimeRemaining()
                 }) {
-                    Text("Reset", color = Color.White)
+                    Text("Reset", color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
