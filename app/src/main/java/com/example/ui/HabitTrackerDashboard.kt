@@ -49,6 +49,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -148,6 +149,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
     var showMenu by remember { mutableStateOf(false) }
     var showImportDialog by remember { mutableStateOf(false) }
     var showTrashDialog by remember { mutableStateOf(false) }
+    var showReadmeDialog by remember { mutableStateOf(false) }
 
     var anchorDate by remember { mutableStateOf(Date()) }
 
@@ -252,13 +254,22 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.MoreVert,
-                                    contentDescription = "Backup Options"
+                                    contentDescription = "Menu Options"
                                 )
                             }
                             DropdownMenu(
                                 expanded = showMenu,
                                 onDismissRequest = { showMenu = false }
                             ) {
+                                DropdownMenuItem(
+                                    text = { Text("App Guidelines & README") },
+                                    onClick = {
+                                        showMenu = false
+                                        showReadmeDialog = true
+                                    },
+                                    leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null) }
+                                )
+                                Divider()
                                 DropdownMenuItem(
                                     text = { Text("Backup, Import & Export") },
                                     onClick = {
@@ -691,36 +702,45 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
 
                         // Line graph score trend over past 6 weeks
                         val scoreHistory = remember(allCompletions, habit.id) {
-                            val scores = mutableListOf<Float>()
+                            val scores = mutableListOf<Pair<Int, Float>>()
                             val cal = Calendar.getInstance()
                             cal.add(Calendar.WEEK_OF_YEAR, -5)
                             cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
                             val localSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+                            val todayStr = localSdf.format(Date())
                             for (w in 0 until 6) {
                                 var completed = 0
+                                var daysPassed = 0
+                                val weekNumber = cal.get(Calendar.WEEK_OF_YEAR)
                                 for (d in 0 until 7) {
                                     val dStr = localSdf.format(cal.time)
+                                    if (dStr <= todayStr) daysPassed++
                                     if (allCompletions.any { it.habitId == habit.id && it.dateString == dStr }) {
                                         completed++
                                     }
                                     cal.add(Calendar.DAY_OF_YEAR, 1)
                                 }
                                 val weekTarget = habit.targetDaysPerWeek.coerceAtLeast(1)
-                                val percentage = (completed.toFloat() / weekTarget.toFloat()) * 100f
-                                scores.add(percentage.coerceIn(0f, 100f))
+                                // Adjust target if it's the current incomplete week
+                                val actualTarget = if (daysPassed < 7 && daysPassed > 0) {
+                                    (weekTarget * (daysPassed / 7f)).coerceAtLeast(1f)
+                                } else weekTarget.toFloat()
+                                val percentage = (completed.toFloat() / actualTarget) * 100f
+                                scores.add(Pair(weekNumber, percentage.coerceIn(0f, 100f)))
                             }
                             scores
                         }
 
                         // Bar chart completions over past 8 weeks
                         val weeklyCounts = remember(allCompletions, habit.id) {
-                            val counts = mutableListOf<Int>()
+                            val counts = mutableListOf<Pair<Int, Int>>()
                             val cal = Calendar.getInstance()
                             cal.add(Calendar.WEEK_OF_YEAR, -7)
                             cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
                             val localSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                             for (w in 0 until 8) {
                                 var completed = 0
+                                val weekNumber = cal.get(Calendar.WEEK_OF_YEAR)
                                 for (d in 0 until 7) {
                                     val dStr = localSdf.format(cal.time)
                                     if (allCompletions.any { it.habitId == habit.id && it.dateString == dStr }) {
@@ -728,7 +748,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                                     }
                                     cal.add(Calendar.DAY_OF_YEAR, 1)
                                 }
-                                counts.add(completed)
+                                counts.add(Pair(weekNumber, completed))
                             }
                             counts
                         }
@@ -1230,6 +1250,10 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                 Toast.makeText(context, "Habit created successfully!", Toast.LENGTH_SHORT).show()
             }
         )
+    }
+
+    if (showReadmeDialog) {
+        GlobalReadmeDialog(onDismiss = { showReadmeDialog = false })
     }
 
     if (showImportDialog) {
@@ -1806,7 +1830,7 @@ fun BackupImportExportDialog(
     onFileImportTrigger: () -> Unit,
     viewModel: HabitViewModel
 ) {
-    var selectedSubTab by remember { mutableStateOf(0) } // 0 = Export, 1 = Import, 2 = Google Backup, 3 = Supabase
+    var selectedSubTab by remember { mutableStateOf(0) } // 0 = Export, 1 = Import, 2 = Google Backup
     var backupText by remember { mutableStateOf("") }
 
     val isSqlGuideExpanded by remember { mutableStateOf(false) }
@@ -1822,13 +1846,6 @@ fun BackupImportExportDialog(
         }
     }
     val versionName = packageInfo?.versionName ?: "1.1.0"
-
-    // Auto-fetch backups once on mounting Supabase tab or if connected
-    LaunchedEffect(selectedSubTab) {
-        if (selectedSubTab == 3) {
-            // Placeholder: removed
-        }
-    }
     
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -2849,6 +2866,84 @@ fun WeeklyTrendChart(reports: List<WeeklyReport>) {
 }
 
 @Composable
+fun GlobalReadmeDialog(onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.85f).padding(8.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Top
+            ) {
+                Text(
+                    text = "Habit Loop README",
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Column(
+                    modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text(
+                        text = "Habit Loop is an offline-first privacy focused habit tracker app that helps you build reliable routines over time.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Text(
+                        text = "Mastery Levels Guide",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "The mastery level of your habit is purely based on the number of non-archived completions you have accrued over its total lifetime. The more consistently you complete the task, the faster you rank up.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MasteryRow(level = 0, label = "Rookie", desc = "0 to 6 completions")
+                        MasteryRow(level = 1, label = "Apprentice", desc = "7 to 20 completions")
+                        MasteryRow(level = 2, label = "Practitioner", desc = "21 to 44 completions")
+                        MasteryRow(level = 3, label = "Expert", desc = "45 to 89 completions")
+                        MasteryRow(level = 4, label = "Master", desc = "90 to 179 completions")
+                        MasteryRow(level = 5, label = "Legend", desc = "180+ completions")
+                    }
+
+                    Text(
+                        text = "Dashboard & Analytics",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = "1. Active Tab: Here you can check off your habits for any day within the last 3 weeks. Tap the left/right arrows to slide between weeks.\n\n" +
+                               "2. Analytics Tab: Gives you deep statistical insight into your streaks and performance.\n\n" +
+                               "3. Detailed Stats: To see deep specific stats like Heatmaps, 6-Week Score Trends, or 8-Week histories, tap specifically on a habit's Streak Card in the Analytics tab.\n\n" +
+                               "4. Color/Frequency Customization: Edit any habit to pick custom display colors via color swatches or hex code, and define weekly occurrence goals.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Awesome, got it!")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun MasteryInfoDialog(onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -3567,25 +3662,33 @@ fun AddHabitDialog(
 }
 
 @Composable
-fun ScoreTrendLineChart(scores: List<Float>, color: Color) {
+fun ScoreTrendLineChart(scores: List<Pair<Int, Float>>, color: Color) {
     val scoresToDraw = remember(scores) {
-        if (scores.isEmpty()) listOf(0f, 0f, 0f, 0f, 0f, 0f) else scores
+        if (scores.isEmpty()) List(6) { Pair(0, 0f) } else scores
     }
-    
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+    )
+    val scoreStyle = MaterialTheme.typography.labelSmall.copy(
+        color = color,
+        fontWeight = FontWeight.Bold
+    )
+
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(180.dp)
-            .padding(vertical = 12.dp, horizontal = 12.dp)
+            .height(200.dp) // increased height slightly to fit text
+            .padding(vertical = 16.dp, horizontal = 12.dp)
     ) {
         val width = size.width
-        val height = size.height
+        val height = size.height - 30.dp.toPx() // Reserve bottom space for labels
         val pointsCount = scoresToDraw.size
         val stepX = width / (pointsCount - 1).coerceAtLeast(1)
         val stepY = height / 100f
         
         // Draw horizontal grid lines and labels
-        val gridLines = listOf(0f, 20f, 40f, 60f, 80f, 100f)
+        val gridLines = listOf(0f, 25f, 50f, 75f, 100f)
         gridLines.forEach { value ->
             val y = height - (value * stepY)
             drawLine(
@@ -3598,7 +3701,7 @@ fun ScoreTrendLineChart(scores: List<Float>, color: Color) {
         
         // Draw a line joining the points
         val points = scoresToDraw.mapIndexed { index, score ->
-            Offset(index * stepX, height - (score * stepY))
+            Offset(index * stepX, height - (score.second * stepY))
         }
         
         for (i in 0 until points.size - 1) {
@@ -3612,7 +3715,7 @@ fun ScoreTrendLineChart(scores: List<Float>, color: Color) {
         }
         
         // Draw dots on each node
-        points.forEach { point ->
+        points.forEachIndexed { index, point ->
             drawCircle(
                 color = color,
                 radius = 5.dp.toPx(),
@@ -3623,13 +3726,32 @@ fun ScoreTrendLineChart(scores: List<Float>, color: Color) {
                 radius = 2.dp.toPx(),
                 center = point
             )
+            val weekTxt = "W" + scoresToDraw[index].first.toString()
+            val scoreTxt = "${scoresToDraw[index].second.toInt()}%"
+            
+            // Measure texts
+            val weekLayoutResult = textMeasurer.measure(weekTxt, labelStyle)
+            val scoreLayoutResult = textMeasurer.measure(scoreTxt, scoreStyle)
+            
+            drawText(
+                textMeasurer = textMeasurer,
+                text = weekTxt,
+                style = labelStyle,
+                topLeft = Offset(point.x - (weekLayoutResult.size.width / 2f), height + 10.dp.toPx())
+            )
+            drawText(
+                textMeasurer = textMeasurer,
+                text = scoreTxt,
+                style = scoreStyle,
+                topLeft = Offset(point.x - (scoreLayoutResult.size.width / 2f), point.y - 24.dp.toPx())
+            )
         }
     }
 }
 
 @Composable
-fun CustomHistoryBarChart(counts: List<Int>, color: Color) {
-    val maxVal = counts.maxOrNull()?.coerceAtLeast(1) ?: 1
+fun CustomHistoryBarChart(counts: List<Pair<Int, Int>>, color: Color) {
+    val maxVal = counts.maxOfOrNull { it.second }?.coerceAtLeast(1) ?: 1
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -3638,7 +3760,7 @@ fun CustomHistoryBarChart(counts: List<Int>, color: Color) {
         horizontalArrangement = Arrangement.SpaceAround,
         verticalAlignment = Alignment.Bottom
     ) {
-        counts.forEachIndexed { index, count ->
+        counts.forEach { (weekNumber, count) ->
             val fraction = count.toFloat() / maxVal.toFloat()
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -3661,7 +3783,7 @@ fun CustomHistoryBarChart(counts: List<Int>, color: Color) {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "W${index + 1}",
+                    text = "W$weekNumber",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                 )
