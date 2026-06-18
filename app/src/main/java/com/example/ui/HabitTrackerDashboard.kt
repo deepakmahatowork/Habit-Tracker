@@ -21,6 +21,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.lazy.LazyColumn
@@ -618,7 +619,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
 
                             // Streaks & Leaderboard
                             item {
-                                HabitStreaksPanel(analytics)
+                                HabitStreaksPanel(analytics, onHabitSelected = { selectedAnalyticHabit = it })
                             }
 
                             // Month-by-month Summary Reports
@@ -939,6 +940,24 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                                             color = baseColor,
                                             textAlign = TextAlign.Center
                                         )
+
+                                        val meta = analytics.find { it.habit.id == habit.id }
+                                        val masteryLevel = meta?.masteryLevel ?: 0
+                                        val masteryLabel = meta?.masteryLabel ?: "Rookie"
+
+                                        Badge(
+                                            containerColor = baseColor.copy(alpha = 0.15f),
+                                            contentColor = baseColor,
+                                            modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = "Mastery Level $masteryLevel • $masteryLabel",
+                                                style = MaterialTheme.typography.labelMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                            )
+                                        }
+
                                         Text(
                                             text = "Swipe horizontally or use arrows to flip",
                                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
@@ -2360,6 +2379,8 @@ fun HabitItemRow(
     onMoveDown: () -> Unit               // New
 ) {
     var showDetailDialog by remember { mutableStateOf(false) }
+    var dragOffset by remember { mutableStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
     
     val baseColor = remember(habit.colorHex) {
         try { Color(android.graphics.Color.parseColor(habit.colorHex)) } catch (e: Exception) { Color(0xFF6200EE) }
@@ -2410,6 +2431,39 @@ fun HabitItemRow(
                 .fillMaxWidth()
                 .testTag("habit_card_${habit.id}")
                 .clickable { showDetailDialog = true }
+                .graphicsLayer {
+                    if (isDragging) {
+                        scaleX = 1.04f
+                        scaleY = 1.04f
+                        shadowElevation = 8.dp.toPx()
+                        translationY = dragOffset
+                    }
+                }
+                .pointerInput(habit.id) {
+                    detectDragGesturesAfterLongPress(
+                        onDragStart = {
+                            isDragging = true
+                            dragOffset = 0f
+                        },
+                        onDragEnd = {
+                            isDragging = false
+                            if (dragOffset > 100f) {
+                                onMoveDown()
+                            } else if (dragOffset < -100f) {
+                                onMoveUp()
+                            }
+                            dragOffset = 0f
+                        },
+                        onDragCancel = {
+                            isDragging = false
+                            dragOffset = 0f
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            dragOffset += dragAmount.y
+                        }
+                    )
+                }
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -2806,9 +2860,12 @@ fun WeeklyTrendChart(reports: List<WeeklyReport>) {
 }
 
 @Composable
-fun HabitStreaksPanel(analytics: List<HabitAnalytics>) {
+fun HabitStreaksPanel(
+    analytics: List<HabitAnalytics>,
+    onHabitSelected: (Habit) -> Unit
+) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -2818,7 +2875,7 @@ fun HabitStreaksPanel(analytics: List<HabitAnalytics>) {
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "Keep daily loops unbroken to build long-term routines",
+                text = "Click any habit below to dive deep into custom goals & streaks stats",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -2838,7 +2895,9 @@ fun HabitStreaksPanel(analytics: List<HabitAnalytics>) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 10.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onHabitSelected(item.habit) }
+                        .padding(horizontal = 8.dp, vertical = 8.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2984,6 +3043,7 @@ fun EditHabitDialog(
     var targetDays by remember { mutableStateOf(habit.targetDaysPerWeek) }
     var freqAmount by remember { mutableStateOf(habit.frequencyAmount) }
     var freqPeriod by remember { mutableStateOf(habit.frequencyPeriod) }
+    var customHexInput by remember { mutableStateOf(habit.colorHex) }
 
     // Wide range of colors including vibrant reds, greens, blues, oranges, purples, etc.
     val colorSwatches = listOf(
@@ -3102,7 +3162,10 @@ fun EditHabitDialog(
                                         color = if (selectedColorIndex == globalIndex) MaterialTheme.colorScheme.onSurface else Color.Transparent,
                                         shape = CircleShape
                                     )
-                                    .clickable { selectedColorIndex = globalIndex }
+                                    .clickable { 
+                                        selectedColorIndex = globalIndex
+                                        customHexInput = swatch.second 
+                                    }
                             )
                         }
                     }
@@ -3125,11 +3188,26 @@ fun EditHabitDialog(
                                         color = if (selectedColorIndex == globalIndex) MaterialTheme.colorScheme.onSurface else Color.Transparent,
                                         shape = CircleShape
                                     )
-                                    .clickable { selectedColorIndex = globalIndex }
+                                    .clickable { 
+                                        selectedColorIndex = globalIndex
+                                        customHexInput = swatch.second 
+                                    }
                             )
                         }
                     }
                 }
+
+                OutlinedTextField(
+                    value = customHexInput,
+                    onValueChange = { input ->
+                        customHexInput = input
+                        val matchIdx = colorSwatches.indexOfFirst { it.second.equals(input, ignoreCase = true) }
+                        selectedColorIndex = matchIdx
+                    },
+                    label = { Text("Custom Color Hex (e.g. #FF10B981 or 10B981)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -3143,7 +3221,13 @@ fun EditHabitDialog(
                     Button(
                         onClick = {
                             if (name.isNotBlank()) {
-                                onConfirm(name, description, targetDays, colorSwatches[selectedColorIndex].second, freqAmount, freqPeriod)
+                                val trimmed = customHexInput.trim()
+                                val finalColor = if (trimmed.startsWith("#")) {
+                                    if (trimmed.length == 7) "#FF" + trimmed.substring(1) else trimmed
+                                } else {
+                                    if (trimmed.length == 6) "#FF$trimmed" else if (trimmed.length == 8) "#$trimmed" else "#FF6200EE"
+                                }
+                                onConfirm(name, description, targetDays, finalColor, freqAmount, freqPeriod)
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
@@ -3182,6 +3266,7 @@ fun AddHabitDialog(
         Pair("Warm Terra", "#FFE06666")      // Terracotta
     )
     var selectedColorIndex by remember { mutableStateOf(0) }
+    var customHexInput by remember { mutableStateOf("#FF0EA5E9") }
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -3279,7 +3364,10 @@ fun AddHabitDialog(
                                             color = if (selectedColorIndex == globalIndex) MaterialTheme.colorScheme.onSurface else Color.Transparent,
                                             shape = CircleShape
                                         )
-                                        .clickable { selectedColorIndex = globalIndex }
+                                        .clickable { 
+                                            selectedColorIndex = globalIndex
+                                            customHexInput = swatch.second
+                                        }
                                 )
                             }
                         }
@@ -3302,12 +3390,27 @@ fun AddHabitDialog(
                                             color = if (selectedColorIndex == globalIndex) MaterialTheme.colorScheme.onSurface else Color.Transparent,
                                             shape = CircleShape
                                         )
-                                        .clickable { selectedColorIndex = globalIndex }
+                                        .clickable { 
+                                            selectedColorIndex = globalIndex
+                                            customHexInput = swatch.second
+                                        }
                                 )
                             }
                         }
                     }
                 }
+
+                OutlinedTextField(
+                    value = customHexInput,
+                    onValueChange = { input ->
+                        customHexInput = input
+                        val matchIdx = colorSwatches.indexOfFirst { it.second.equals(input, ignoreCase = true) }
+                        selectedColorIndex = matchIdx
+                    },
+                    label = { Text("Custom Color Hex (e.g. #FF10B981 or 10B981)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
 
                 Row(
                     horizontalArrangement = Arrangement.End,
@@ -3320,11 +3423,17 @@ fun AddHabitDialog(
                     Button(
                         onClick = {
                             if (name.trim().isNotEmpty()) {
+                                val trimmed = customHexInput.trim()
+                                val finalColor = if (trimmed.startsWith("#")) {
+                                    if (trimmed.length == 7) "#FF" + trimmed.substring(1) else trimmed
+                                } else {
+                                    if (trimmed.length == 6) "#FF$trimmed" else if (trimmed.length == 8) "#$trimmed" else "#FF6200EE"
+                                }
                                 onConfirm(
                                     name.trim(),
                                     description.trim(),
                                     targetDays,
-                                    colorSwatches[selectedColorIndex].second
+                                    finalColor
                                 )
                             }
                         },

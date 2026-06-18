@@ -62,6 +62,7 @@ class HabitViewModel(
     private val repository: HabitRepository
 ) : AndroidViewModel(application) {
 
+    private val sharedPrefs = application.getSharedPreferences("habit_tracker_prefs", Context.MODE_PRIVATE)
     private val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val monthFormat = SimpleDateFormat("MMMM yyyy", Locale.US)
 
@@ -69,10 +70,12 @@ class HabitViewModel(
     val selectedDateString = MutableStateFlow(sdf.format(Date()))
 
     // Dark Theme state
-    val isDarkTheme = MutableStateFlow(false)
+    val isDarkTheme = MutableStateFlow(sharedPrefs.getBoolean("dark_theme", true))
 
     fun toggleTheme() {
-        isDarkTheme.value = !isDarkTheme.value
+        val newValue = !isDarkTheme.value
+        isDarkTheme.value = newValue
+        sharedPrefs.edit().putBoolean("dark_theme", newValue).apply()
     }
 
     // Raw habits and completions from DB
@@ -293,10 +296,25 @@ class HabitViewModel(
                 val currentHabit = habits[currentIndex]
                 val targetHabit = habits[newIndex]
                 
-                // Swap orders. We use the original indices as base, not necessarily the index in the list.
-                // Actually, if we just swap the orderIndex directly, it should work.
-                repository.updateHabitOrder(currentHabit.id, newIndex)
-                repository.updateHabitOrder(targetHabit.id, currentIndex)
+                val currentOrder = currentHabit.orderIndex
+                val targetOrder = targetHabit.orderIndex
+                
+                if (currentOrder == targetOrder) {
+                    // Populate explicit sequential orders
+                    for (i in habits.indices) {
+                        repository.updateHabitOrder(habits[i].id, i)
+                    }
+                    val updatedHabits = repository.activeHabits.first()
+                    val upCurrentIndex = updatedHabits.indexOfFirst { it.id == habitId }
+                    val upNewIndex = if (moveUp) upCurrentIndex - 1 else upCurrentIndex + 1
+                    if (upNewIndex >= 0 && upNewIndex < updatedHabits.size) {
+                        repository.updateHabitOrder(updatedHabits[upCurrentIndex].id, upNewIndex)
+                        repository.updateHabitOrder(updatedHabits[upNewIndex].id, upCurrentIndex)
+                    }
+                } else {
+                    repository.updateHabitOrder(currentHabit.id, targetOrder)
+                    repository.updateHabitOrder(targetHabit.id, currentOrder)
+                }
             }
         }
     }
