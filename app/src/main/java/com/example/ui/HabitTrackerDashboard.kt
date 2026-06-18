@@ -352,6 +352,13 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                     label = { Text("Dashboard") },
                     modifier = Modifier.testTag("nav_dashboard_tab")
                 )
+                NavigationBarItem(
+                    selected = activeTab == 3,
+                    onClick = { activeTab = 3 },
+                    icon = { Icon(Icons.Default.HourglassEmpty, contentDescription = "Time Log") },
+                    label = { Text("Time Log") },
+                    modifier = Modifier.testTag("nav_time_log_tab")
+                )
             }
         }
     ) { innerPadding ->
@@ -360,7 +367,12 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            if (activeTab == 0) {
+            if (activeTab == 3) {
+                // Time Log Tab logic
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    TimeProgressDialog(onDismiss = { /* do nothing, it's a page now */ }, isDialog = false)
+                }
+            } else if (activeTab == 0) {
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     val isSmallScreen = maxWidth < 600.dp
                     val habitsWidth = if (isSmallScreen) 140.dp else 240.dp
@@ -468,13 +480,13 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                                             modifier = Modifier
                                                 .size(20.dp)
                                                 .clip(CircleShape)
-                                                .background(if (isToday) MaterialTheme.colorScheme.primary.copy(alpha = 0.25f) else Color.Transparent),
+                                                .background(if (isToday) MaterialTheme.colorScheme.primaryContainer else Color.Transparent),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Text(
                                                 text = displayNumFormat.format(date),
                                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                                color = if (isToday) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                                                color = if (isToday) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                                                 fontWeight = FontWeight.Bold
                                             )
                                         }
@@ -717,8 +729,9 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                             val scores = mutableListOf<Pair<Int, Float>>()
                             val cal = Calendar.getInstance()
                             cal.time = anchorDate
+                            val offset = cal.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY
+                            cal.add(Calendar.DAY_OF_YEAR, -offset)
                             cal.add(Calendar.WEEK_OF_YEAR, -5)
-                            cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
                             val localSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                             val todayCal = Calendar.getInstance()
                             todayCal.time = anchorDate
@@ -751,8 +764,9 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                             val counts = mutableListOf<Pair<Int, Int>>()
                             val cal = Calendar.getInstance()
                             cal.time = anchorDate
+                            val offset = cal.get(Calendar.DAY_OF_WEEK) - Calendar.SUNDAY
+                            cal.add(Calendar.DAY_OF_YEAR, -offset)
                             cal.add(Calendar.WEEK_OF_YEAR, -7)
-                            cal.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
                             val localSdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                             for (w in 0 until 8) {
                                 var completed = 0
@@ -1068,7 +1082,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                                             }
                                             
                                             // Trends & Totals
-                                            val monthTrendColor = if (monthTrend > 0) Color(0xFF4CAF50) else if (monthTrend < 0) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            val monthTrendColor = if (monthTrend > 0) baseColor else if (monthTrend < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                             val monthTrendText = if (monthTrend > 0) "+$monthTrend%" else "$monthTrend%"
                                             
                                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.8f)) {
@@ -1085,7 +1099,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                                                 )
                                             }
 
-                                            val yearTrendColor = if (yearTrend > 0) Color(0xFF4CAF50) else if (yearTrend < 0) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurfaceVariant
+                                            val yearTrendColor = if (yearTrend > 0) baseColor else if (yearTrend < 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                             val yearTrendText = if (yearTrend > 0) "+$yearTrend%" else "$yearTrend%"
 
                                             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(0.8f)) {
@@ -1291,7 +1305,9 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                 }
             },
             onFileExportTrigger = {
-                exportLauncher.launch("habit_backup.json")
+                val dateFormat = SimpleDateFormat("yyyy_MM_dd", Locale.US)
+                val dateStr = dateFormat.format(Date())
+                exportLauncher.launch("habit_backup_$dateStr.json")
             },
             onFileImportTrigger = {
                 importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
@@ -4121,6 +4137,7 @@ fun MonthCalendarView(
             ) {
                 IconButton(onClick = {
                     val nextCal = calendarMonth.clone() as Calendar
+                    nextCal.set(Calendar.DAY_OF_MONTH, 1)
                     nextCal.add(Calendar.MONTH, -1)
                     calendarMonth = nextCal
                 }) {
@@ -4134,13 +4151,14 @@ fun MonthCalendarView(
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Week ${Calendar.getInstance().get(Calendar.WEEK_OF_YEAR)} of ${Calendar.getInstance().get(Calendar.YEAR)}",
+                        text = "Week ${calendarMonth.get(Calendar.WEEK_OF_YEAR)} of ${calendarMonth.get(Calendar.YEAR)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 IconButton(onClick = {
                     val nextCal = calendarMonth.clone() as Calendar
+                    nextCal.set(Calendar.DAY_OF_MONTH, 1)
                     nextCal.add(Calendar.MONTH, 1)
                     calendarMonth = nextCal
                 }) {
@@ -4491,8 +4509,9 @@ fun MonthCalendarView(
 }
 
 @Composable
-fun TimeProgressDialog(onDismiss: () -> Unit) {
+fun TimeProgressDialog(onDismiss: () -> Unit, isDialog: Boolean = true) {
     var currentTime by remember { mutableStateOf(System.currentTimeMillis()) }
+    // ...
     LaunchedEffect(Unit) {
         while (true) {
             kotlinx.coroutines.delay(1000L)
@@ -4558,29 +4577,25 @@ fun TimeProgressDialog(onDismiss: () -> Unit) {
     val yearP = getYearProgress()
     val lifeP = getLifeProgress()
 
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.fillMaxWidth().padding(8.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    val content = @Composable {
+        Column(
+            modifier = Modifier.padding(24.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(24.dp).fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Text(
-                    text = "Time Progress",
-                    fontWeight = FontWeight.Bold,
-                    style = MaterialTheme.typography.titleLarge
-                )
-                
-                TimeProgressBarRow("Day", dayP)
-                TimeProgressBarRow("Week", weekP)
-                TimeProgressBarRow("Month", monthP)
-                TimeProgressBarRow("Quarter", quarterP)
-                TimeProgressBarRow("Year", yearP)
-                TimeProgressBarRow("Life (80y)", lifeP, overrideColor = Color.White)
+            Text(
+                text = "Time Progress",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge
+            )
+            
+            TimeProgressBarRow("Day", dayP)
+            TimeProgressBarRow("Week", weekP)
+            TimeProgressBarRow("Month", monthP)
+            TimeProgressBarRow("Quarter", quarterP)
+            TimeProgressBarRow("Year", yearP)
+            TimeProgressBarRow("Life (80y)", lifeP, overrideColor = Color.White)
 
+            if (isDialog) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End
@@ -4591,6 +4606,20 @@ fun TimeProgressDialog(onDismiss: () -> Unit) {
                 }
             }
         }
+    }
+
+    if (isDialog) {
+        Dialog(onDismissRequest = onDismiss) {
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.fillMaxWidth().padding(8.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                content()
+            }
+        }
+    } else {
+        content()
     }
 }
 
