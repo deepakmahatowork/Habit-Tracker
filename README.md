@@ -1,21 +1,35 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Habit Loop
 
-# Run and deploy your AI Studio app
+Habit Loop is an offline-first, privacy-focused habit tracker app designed to help you build and maintain reliable routines over time. Built with modern Android development practices, it offers a clean, Material 3 interface and powerful insights into your progress.
 
-This contains everything you need to run your app locally.
+## Key Features
 
-View your app in AI Studio: https://ai.studio/apps/7b4a3906-797a-4201-a5a4-c1498e9674e6
+### 🏆 Habit Mastery System
+Track your growth with our Mastery Level system. As you stay consistent, your habits level up:
+- **Rookie** (0-6 completions)
+- **Apprentice** (7-20 completions)
+- **Practitioner** (21-44 completions)
+- **Expert** (45-89 completions)
+- **Master** (90-179 completions)
+- **Legend** (180+ completions)
 
-## Run Locally
+### 📊 Powerful Analytics
+Get deep insights into your habit-building journey:
+- **Weekly Progress Trends**: Visualize your status scores over a 6-week period.
+- **Completion History**: Track your progress over the past 8 weeks with intuitive bar charts.
+- **Goal Customization**: Define custom weekly targets, colors, and frequencies (Daily, Weekly, Monthly) for every habit.
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+### ⏳ Time Progress Tracking
+Stay mindful of your time with our dedicated progress dashboard covering:
+- **Day/Week/Month/Quarter/Year** progress percentages.
+- **Life Progress**: Visualizing your progress against an assumed 80-year lifespan.
 
+### 🔒 Privacy & Data
+- **Offline-First**: All your data stays on your device.
+- **Backup & Restore**: Easily import and export your data to take control of your records.
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+## Technology Stack
+- **Languages**: Kotlin
+- **UI**: Jetpack Compose
+- **Design System**: Material Design 3 (M3)
+- **Local Persistence**: Room Database
