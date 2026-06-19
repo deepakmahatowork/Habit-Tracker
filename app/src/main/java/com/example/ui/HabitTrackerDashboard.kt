@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
@@ -4737,7 +4738,7 @@ fun TimeProgressBarRow(label: String, progress: Float, overrideColor: Color? = n
             verticalAlignment = Alignment.Bottom
         ) {
             Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-            Text(String.format(Locale.US, "%.2f%%", progress * 100f), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(String.format(Locale.US, "%.2f%%", progress * 100f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(4.dp))
         Box(
@@ -4870,11 +4871,10 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
     }
 
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = if (isFullScreen) RectangleShape else RoundedCornerShape(24.dp),
         modifier = Modifier
-            .fillMaxWidth()
-            .then(if (isFullScreen) Modifier.fillMaxSize() else Modifier.height(300.dp))
-            .padding(16.dp),
+            .fillMaxSize()
+            .padding(if (isFullScreen) 0.dp else 16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isFullScreen) {
                 if (state.isFinished) backgroundColor.value else Color.Black
@@ -4884,9 +4884,9 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
         )
     ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(if (isFullScreen) 32.dp else 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = if (isFullScreen) Arrangement.Center else Arrangement.SpaceBetween
+            verticalArrangement = if (isFullScreen) Arrangement.spacedBy(32.dp) else Arrangement.SpaceBetween
         ) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 if (!isFullScreen) {
@@ -4927,12 +4927,31 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
                 }
             }
             
-            Text(
-                text = timeString,
-                fontSize = if (isFullScreen) 180.sp else 80.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "%02d".format(displayMinutes),
+                    fontSize = if (isFullScreen) 250.sp else 60.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                // Separator line
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(if (isFullScreen) 0.5f else 0.3f)
+                        .height(if (isFullScreen) 8.dp else 4.dp)
+                        .background(Color.White)
+                )
+                Text(
+                    text = "%02d".format(displaySeconds),
+                    fontSize = if (isFullScreen) 250.sp else 60.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
 
             if (!isFullScreen) {
                 Text(
