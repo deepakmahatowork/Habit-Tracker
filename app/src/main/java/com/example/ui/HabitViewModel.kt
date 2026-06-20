@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -180,7 +182,7 @@ class HabitViewModel(
                 masteryLabel = masteryLabel
             )
         }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Weekly summary report over time (last 6 weeks)
     val weeklyReports: StateFlow<List<WeeklyReport>> = combine(
@@ -235,7 +237,7 @@ class HabitViewModel(
             )
         }
         result // index 0 is this week, last is 5 weeks ago. We'll show chronologically by reversing in UI
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Monthly summary report over time (last 4 months)
     val monthlyReports: StateFlow<List<MonthlyReport>> = combine(
@@ -279,7 +281,7 @@ class HabitViewModel(
             )
         }
         result
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         // Seeding database if empty on launch

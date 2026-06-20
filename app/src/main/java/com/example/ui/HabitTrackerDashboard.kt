@@ -2866,83 +2866,88 @@ fun WeeklyTrendChart(reports: List<WeeklyReport>) {
     val chartLineColor = MaterialTheme.colorScheme.primary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    Canvas(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(180.dp)
-    ) {
-        val width = size.width
-        val height = size.height
+    Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+        Canvas(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            val width = size.width
+            val height = size.height
 
-        val yPaddingBottom = 30.dp.toPx()
-        val yPaddingTop = 15.dp.toPx()
-        val xPaddingLeft = 40.dp.toPx()
-        val xPaddingRight = 15.dp.toPx()
+            val yPaddingBottom = 30.dp.toPx()
+            val yPaddingTop = 15.dp.toPx()
+            val xPaddingLeft = 40.dp.toPx()
+            val xPaddingRight = 15.dp.toPx()
 
-        val usableWidth = width - xPaddingLeft - xPaddingRight
-        val usableHeight = height - yPaddingBottom - yPaddingTop
+            val usableWidth = width - xPaddingLeft - xPaddingRight
+            val usableHeight = height - yPaddingBottom - yPaddingTop
 
-        // Draw horizontal Grid Reference Lines
-        val levels = listOf(0f, 0.5f, 1f)
-        levels.forEach { lv ->
-            val y = yPaddingTop + usableHeight * (1f - lv)
-            drawLine(
-                color = Color.LightGray.copy(alpha = 0.4f),
-                start = Offset(xPaddingLeft, y),
-                end = Offset(width - xPaddingRight, y),
-                strokeWidth = 1.dp.toPx()
+            // Draw horizontal Grid Reference Lines
+            val levels = listOf(0f, 0.5f, 1f)
+            levels.forEach { lv ->
+                val y = yPaddingTop + usableHeight * (1f - lv)
+                drawLine(
+                    color = Color.LightGray.copy(alpha = 0.4f),
+                    start = Offset(xPaddingLeft, y),
+                    end = Offset(width - xPaddingRight, y),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            // Draw data points
+            val pointCount = chronologicalReports.size
+            val points: List<Offset> = chronologicalReports.mapIndexed { idx, rep ->
+                val x = xPaddingLeft + (idx.toFloat() / (pointCount - 1).coerceAtLeast(1)) * usableWidth
+                val fraction = (rep.scorePercentage / 100f).coerceIn(0f, 1f)
+                val y = yPaddingTop + usableHeight * (1f - fraction)
+                Offset(x, y)
+            }
+
+            // Draw lines connecting points
+            for (i in 0 until points.size - 1) {
+                drawLine(
+                    color = chartLineColor,
+                    start = points[i],
+                    end = points[i + 1],
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
+
+            // Draw gradient fill under line
+            val path = androidx.compose.ui.graphics.Path().apply {
+                moveTo(points.first().x, yPaddingTop + usableHeight)
+                points.forEach { pt -> lineTo(pt.x, pt.y) }
+                lineTo(points.last().x, yPaddingTop + usableHeight)
+                close()
+            }
+            drawPath(
+                path = path,
+                brush = Brush.verticalGradient(
+                    colors = listOf(chartLineColor.copy(alpha = 0.3f), Color.Transparent),
+                    startY = yPaddingTop,
+                    endY = yPaddingTop + usableHeight
+                )
             )
-        }
 
-        // Draw data points
-        val pointCount = chronologicalReports.size
-        val points: List<Offset> = chronologicalReports.mapIndexed { idx, rep ->
-            val x = xPaddingLeft + (idx.toFloat() / (pointCount - 1).coerceAtLeast(1)) * usableWidth
-            val fraction = (rep.scorePercentage / 100f).coerceIn(0f, 1f)
-            val y = yPaddingTop + usableHeight * (1f - fraction)
-            Offset(x, y)
+            // Draw individual data dots & value labels above them
+            points.forEachIndexed { idx, pt ->
+                drawCircle(
+                    color = chartLineColor,
+                    radius = 5.dp.toPx(),
+                    center = pt
+                )
+                drawCircle(
+                    color = Color.White,
+                    radius = 2.5.dp.toPx(),
+                    center = pt
+                )
+            }
         }
-
-        // Draw lines connecting points
-        for (i in 0 until points.size - 1) {
-            drawLine(
-                color = chartLineColor,
-                start = points[i],
-                end = points[i + 1],
-                strokeWidth = 3.dp.toPx(),
-                cap = StrokeCap.Round
-            )
-        }
-
-        // Draw gradient fill under line
-        val path = androidx.compose.ui.graphics.Path().apply {
-            moveTo(points.first().x, yPaddingTop + usableHeight)
-            points.forEach { pt -> lineTo(pt.x, pt.y) }
-            lineTo(points.last().x, yPaddingTop + usableHeight)
-            close()
-        }
-        drawPath(
-            path = path,
-            brush = Brush.verticalGradient(
-                colors = listOf(chartLineColor.copy(alpha = 0.3f), Color.Transparent),
-                startY = yPaddingTop,
-                endY = yPaddingTop + usableHeight
-            )
-        )
-
-        // Draw individual data dots & value labels above them
-        points.forEachIndexed { idx, pt ->
-            drawCircle(
-                color = chartLineColor,
-                radius = 5.dp.toPx(),
-                center = pt
-            )
-            drawCircle(
-                color = Color.White,
-                radius = 2.5.dp.toPx(),
-                center = pt
-            )
-        }
+        
+        // Y-axis Labels
+        Text("100%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.offset(x = 4.dp, y = 7.dp))
+        Text("50%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.offset(x = 4.dp, y = 74.5.dp))
+        Text("0%", style = MaterialTheme.typography.labelSmall, modifier = Modifier.offset(x = 4.dp, y = 142.dp))
     }
 
     // Horizontal Labels
@@ -4738,7 +4743,7 @@ fun TimeProgressBarRow(label: String, progress: Float, overrideColor: Color? = n
             verticalAlignment = Alignment.Bottom
         ) {
             Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
-            Text(String.format(Locale.US, "%.2f%%", progress * 100f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            Text(String.format(Locale.US, "%.2f%%", progress * 100f), style = MaterialTheme.typography.bodyMedium, color = Color.White, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.height(4.dp))
         Box(
@@ -4934,7 +4939,7 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
             ) {
                 Text(
                     text = "%02d".format(displayMinutes),
-                    fontSize = if (isFullScreen) 250.sp else 60.sp,
+                    fontSize = if (isFullScreen) 160.sp else 60.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
@@ -4947,7 +4952,7 @@ fun PomodoroTimerView(state: PomodoroState, isFullScreen: Boolean, onFullScreenT
                 )
                 Text(
                     text = "%02d".format(displaySeconds),
-                    fontSize = if (isFullScreen) 250.sp else 60.sp,
+                    fontSize = if (isFullScreen) 160.sp else 60.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
                 )
