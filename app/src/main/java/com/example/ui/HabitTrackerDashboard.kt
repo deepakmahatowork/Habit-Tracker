@@ -3787,8 +3787,10 @@ fun ScoreTrendLineChart(scores: List<Pair<Int, Float>>, color: Color) {
     ) {
         val width = size.width
         val height = size.height - 30.dp.toPx() // Reserve bottom space for labels
+        val xPaddingLeft = 32.dp.toPx()
+        
         val pointsCount = scoresToDraw.size
-        val stepX = width / (pointsCount - 1).coerceAtLeast(1)
+        val stepX = (width - xPaddingLeft) / (pointsCount - 1).coerceAtLeast(1)
         val stepY = height / 100f
         
         // Draw horizontal grid lines and labels
@@ -3797,15 +3799,23 @@ fun ScoreTrendLineChart(scores: List<Pair<Int, Float>>, color: Color) {
             val y = height - (value * stepY)
             drawLine(
                 color = Color.LightGray.copy(alpha = 0.3f),
-                start = Offset(0f, y),
+                start = Offset(xPaddingLeft, y),
                 end = Offset(width, y),
                 strokeWidth = 1f
+            )
+            val labelTxt = "${value.toInt()}%"
+            val textLayoutResult = textMeasurer.measure(labelTxt, labelStyle)
+            drawText(
+                textMeasurer = textMeasurer,
+                text = labelTxt,
+                style = labelStyle,
+                topLeft = Offset(0f, y - (textLayoutResult.size.height / 2f))
             )
         }
         
         // Draw a line joining the points
         val points = scoresToDraw.mapIndexed { index, score ->
-            Offset(index * stepX, height - (score.second * stepY))
+            Offset(xPaddingLeft + (index * stepX), height - (score.second * stepY))
         }
         
         for (i in 0 until points.size - 1) {
