@@ -80,25 +80,34 @@ class HabitViewModel(
         sharedPrefs.edit().putBoolean("dark_theme", newValue).apply()
     }
 
+    // Hide Completed state
+    val hideCompletedToday = MutableStateFlow(sharedPrefs.getBoolean("hide_completed_today", false))
+
+    fun toggleHideCompletedToday() {
+        val newValue = !hideCompletedToday.value
+        hideCompletedToday.value = newValue
+        sharedPrefs.edit().putBoolean("hide_completed_today", newValue).apply()
+    }
+
     // Raw habits and completions from DB
     val activeHabits: StateFlow<List<Habit>> = repository.activeHabits
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 
     val archivedHabits: StateFlow<List<Habit>> = repository.archivedHabits
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 
     val allCompletions: StateFlow<List<HabitCompletion>> = repository.allCompletions
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
+            started = SharingStarted.Eagerly,
             initialValue = emptyList()
         )
 
@@ -110,7 +119,7 @@ class HabitViewModel(
         completions.filter { it.dateString == dateStr }.map { it.habitId }.toSet()
     }.stateIn(
         scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
+        started = SharingStarted.Eagerly,
         initialValue = emptySet()
     )
 
@@ -182,7 +191,7 @@ class HabitViewModel(
                 masteryLabel = masteryLabel
             )
         }
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Weekly summary report over time (last 6 weeks)
     val weeklyReports: StateFlow<List<WeeklyReport>> = combine(
@@ -237,7 +246,7 @@ class HabitViewModel(
             )
         }
         result // index 0 is this week, last is 5 weeks ago. We'll show chronologically by reversing in UI
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // Monthly summary report over time (last 4 months)
     val monthlyReports: StateFlow<List<MonthlyReport>> = combine(
@@ -281,7 +290,7 @@ class HabitViewModel(
             )
         }
         result
-    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    }.flowOn(Dispatchers.Default).stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         // Seeding database if empty on launch
@@ -337,6 +346,7 @@ class HabitViewModel(
             } else {
                 repository.addCompletion(habitId, date)
             }
+            com.example.TodayTasksWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
@@ -350,6 +360,7 @@ class HabitViewModel(
             } else {
                 repository.addCompletion(habitId, dateStr)
             }
+            com.example.TodayTasksWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
@@ -365,6 +376,7 @@ class HabitViewModel(
                 frequencyPeriod = freqPeriod
             )
             repository.insertHabit(habit)
+            com.example.TodayTasksWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
@@ -381,6 +393,7 @@ class HabitViewModel(
                 frequencyPeriod = freqPeriod
             )
             repository.updateHabit(habit)
+            com.example.TodayTasksWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
@@ -388,6 +401,7 @@ class HabitViewModel(
     fun deleteHabit(habitId: Int) {
         viewModelScope.launch {
             repository.archiveHabit(habitId)
+            com.example.TodayTasksWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
@@ -395,6 +409,7 @@ class HabitViewModel(
     fun restoreHabit(habitId: Int) {
         viewModelScope.launch {
             repository.restoreHabit(habitId)
+            com.example.TodayTasksWidgetProvider.triggerUpdate(getApplication())
         }
     }
 
@@ -402,6 +417,7 @@ class HabitViewModel(
     fun permanentlyDeleteHabit(habitId: Int) {
         viewModelScope.launch {
             repository.deleteHabit(habitId)
+            com.example.TodayTasksWidgetProvider.triggerUpdate(getApplication())
         }
     }
 

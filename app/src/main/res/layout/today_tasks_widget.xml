@@ -1,0 +1,230 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="12dp">
+
+    <!-- Header Section -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_alignParentLeft="true">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Daily Habits"
+                android:textColor="#FFFFFFFF"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Today"
+                android:textColor="#FFBBBBBB"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0%"
+            android:textColor="#FFFFD700"
+            android:textSize="12dp"
+            android:textStyle="bold"
+            android:layout_alignParentRight="true"
+            android:layout_centerVertical="true" />
+    </RelativeLayout>
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0.7dp"
+        android:background="#FF333333"
+        android:layout_marginBottom="8dp" />
+
+    <!-- Empty State -->
+    <TextView
+        android:id="@+id/widget_empty_text"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="No active habits today!"
+        android:textColor="#FF888888"
+        android:textSize="12sp"
+        android:gravity="center"
+        android:visibility="gone" />
+
+    <!-- Habits List (Up to 5 items) -->
+    <LinearLayout
+        android:id="@+id/widget_habits_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_weight="1">
+
+        <!-- Habit Row 1 -->
+        <LinearLayout
+            android:id="@+id/widget_habit_1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp"
+            android:visibility="visible">
+
+            <View
+                android:id="@+id/status_1"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:background="@drawable/widget_status_unchecked_bg"
+                android:layout_marginRight="8dp" />
+
+            <TextView
+                android:id="@+id/name_1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Water Daily"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:ellipsize="end"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <!-- Habit Row 2 -->
+        <LinearLayout
+            android:id="@+id/widget_habit_2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp"
+            android:visibility="visible">
+
+            <View
+                android:id="@+id/status_2"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:background="@drawable/widget_status_unchecked_bg"
+                android:layout_marginRight="8dp" />
+
+            <TextView
+                android:id="@+id/name_2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Sleep hygiene"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:ellipsize="end"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <!-- Habit Row 3 -->
+        <LinearLayout
+            android:id="@+id/widget_habit_3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp"
+            android:visibility="visible">
+
+            <View
+                android:id="@+id/status_3"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:background="@drawable/widget_status_unchecked_bg"
+                android:layout_marginRight="8dp" />
+
+            <TextView
+                android:id="@+id/name_3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Reading 15p"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:ellipsize="end"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <!-- Habit Row 4 -->
+        <LinearLayout
+            android:id="@+id/widget_habit_4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp"
+            android:visibility="visible">
+
+            <View
+                android:id="@+id/status_4"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:background="@drawable/widget_status_unchecked_bg"
+                android:layout_marginRight="8dp" />
+
+            <TextView
+                android:id="@+id/name_4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Gym routine"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:ellipsize="end"
+                android:singleLine="true" />
+        </LinearLayout>
+
+        <!-- Habit Row 5 -->
+        <LinearLayout
+            android:id="@+id/widget_habit_5"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="6dp"
+            android:visibility="visible">
+
+            <View
+                android:id="@+id/status_5"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:background="@drawable/widget_status_unchecked_bg"
+                android:layout_marginRight="8dp" />
+
+            <TextView
+                android:id="@+id/name_5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Zen Meditation"
+                android:textColor="#FFFFFFFF"
+                android:textSize="12sp"
+                android:ellipsize="end"
+                android:singleLine="true" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- More habits indicator -->
+    <TextView
+        android:id="@+id/widget_more_count"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="+ 2 more tasks to do"
+        android:textColor="#FFAAAAAA"
+        android:textSize="10sp"
+        android:gravity="right"
+        android:textStyle="italic"
+        android:visibility="gone" />
+
+</LinearLayout>

@@ -23,6 +23,19 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Habit Tracker Today Tasks Widget -->
+        <receiver
+            android:name=".TodayTasksWidgetProvider"
+            android:exported="false"
+            android:label="Today's Habits">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/today_tasks_widget_info" />
+        </receiver>
     </application>
 
 </manifest>

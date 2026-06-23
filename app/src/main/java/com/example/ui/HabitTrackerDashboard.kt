@@ -123,7 +123,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
     val monthlyReports by viewModel.monthlyReports.collectAsState()
     val isDarkTheme by viewModel.isDarkTheme.collectAsState()
 
-    var hideCompletedToday by remember { mutableStateOf(false) }
+    val hideCompletedToday by viewModel.hideCompletedToday.collectAsState()
     var sortByBestHabit by remember { mutableStateOf(false) }
 
     val filteredActiveHabits = remember(activeHabits, hideCompletedToday, todaySelectedComps, sortByBestHabit, analytics) {
@@ -477,7 +477,7 @@ fun HabitTrackerDashboard(viewModel: HabitViewModel) {
                         ) {
                             FilterChip(
                                 selected = hideCompletedToday,
-                                onClick = { hideCompletedToday = !hideCompletedToday },
+                                onClick = { viewModel.toggleHideCompletedToday() },
                                 label = { Text("Hide Completed", style = MaterialTheme.typography.bodySmall) },
                                 leadingIcon = if (hideCompletedToday) {
                                     { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
